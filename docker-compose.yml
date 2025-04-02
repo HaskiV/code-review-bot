@@ -1,0 +1,12 @@
+version: '3'
+
+services:
+  code-review-bot:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app
+      - ./frontend:/app/static
+    environment:
+      - FLASK_ENV=development

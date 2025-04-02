@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Code Review Bot</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Code Review Bot</h1>
+            <p>Автоматический анализ и ревью кода с использованием нейронных сетей</p>
+        </header>
+        
+        <main>
+            <div class="code-input-section">
+                <div class="language-selector">
+                    <label for="language">Язык программирования:</label>
+                    <select id="language">
+                        <option value="python">Python</option>
+                        <option value="javascript">JavaScript</option>
+                        <option value="java">Java</option>
+                        <option value="cpp">C++</option>
+                    </select>
+                </div>
+                
+                <div class="code-editor">
+                    <label for="code-input">Вставьте ваш код:</label>
+                    <textarea id="code-input" placeholder="// Вставьте ваш код здесь"></textarea>
+                </div>
+                
+                <button id="analyze-btn">Анализировать код</button>
+            </div>
+            
+            <div class="results-section">
+                <div class="loading-indicator" id="loading">
+                    <div class="spinner"></div>
+                    <p>Анализируем ваш код...</p>
+                </div>
+                
+                <div class="results-container" id="results">
+                    <h2>Результаты анализа</h2>
+                    
+                    <div class="result-box">
+                        <h3>Предложения по улучшению кода</h3>
+                        <div id="ml-suggestions" class="result-content"></div>
+                    </div>
+                    
+                    <div class="result-box">
+                        <h3>Результаты статического анализа</h3>
+                        <div id="static-analysis" class="result-content"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <p>AI Code Review Bot &copy; 2025 | Открытое ПО для анализа кода</p>
+        </footer>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>

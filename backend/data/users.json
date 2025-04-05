@@ -1,0 +1,11 @@
+{
+  "admin": {
+    "id": "admin",
+    "password_hash": "3a950db1472be460b52b4dbc7eec91cc3880534777318be37aab949eaa97c128",
+    "salt": "dd1b7117b06dc79c2191df2616eb6c30",
+    "role": "admin",
+    "api_keys": {
+      "default": "5aa61d275ed7eb8aa7713862b2db4e67b783eeddfb89d42d382c55871e9cadb9"
+    }
+  }
+}

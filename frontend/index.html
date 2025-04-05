@@ -1,65 +1,82 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Code Review Bot</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Code Review Bot</title>
+    <link rel="stylesheet" href="/styles.css">
+    <!-- CodeMirror -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
+    <!-- Marked для форматирования markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>AI Code Review Bot</h1>
-            <p>Автоматический анализ и ревью кода с использованием нейронных сетей</p>
-        </header>
+        <h1>Code Review Bot</h1>
         
-        <main>
-            <div class="code-input-section">
-                <div class="language-selector">
-                    <label for="language">Язык программирования:</label>
-                    <select id="language">
-                        <option value="python">Python</option>
-                        <option value="javascript">JavaScript</option>
-                        <option value="java">Java</option>
-                        <option value="cpp">C++</option>
-                    </select>
-                </div>
-                
-                <div class="code-editor">
-                    <label for="code-input">Вставьте ваш код:</label>
-                    <textarea id="code-input" placeholder="// Вставьте ваш код здесь"></textarea>
-                </div>
-                
-                <button id="analyze-btn">Анализировать код</button>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="language-select">Язык программирования:</label>
+                <select id="language-select" class="form-control">
+                    <option value="python">Python</option>
+                    <option value="javascript">JavaScript</option>
+                    <option value="java">Java</option>
+                    <option value="cpp">C++</option>
+                    <option value="csharp">C#</option>
+                    <option value="php">PHP</option>
+                    <option value="ruby">Ruby</option>
+                    <option value="go">Go</option>
+                    <option value="swift">Swift</option>
+                    <option value="kotlin">Kotlin</option>
+                </select>
             </div>
             
-            <div class="results-section">
-                <div class="loading-indicator" id="loading">
-                    <div class="spinner"></div>
-                    <p>Анализируем ваш код...</p>
-                </div>
-                
-                <div class="results-container" id="results">
-                    <h2>Результаты анализа</h2>
-                    
-                    <div class="result-box">
-                        <h3>Предложения по улучшению кода</h3>
-                        <div id="ml-suggestions" class="result-content"></div>
-                    </div>
-                    
-                    <div class="result-box">
-                        <h3>Результаты статического анализа</h3>
-                        <div id="static-analysis" class="result-content"></div>
-                    </div>
-                </div>
+            <div class="form-group">
+                <label for="model-select">AI Модель:</label>
+                <select id="model-select" class="form-control">
+                    <option value="">Загрузка моделей...</option>
+                </select>
             </div>
-        </main>
+            
+            <!-- Добавляем переключатель языка ответа -->
+            <div class="form-group">
+                <label for="response-language">Язык ответа:</label>
+                <select id="response-language" class="form-control">
+                    <option value="russian">Русский</option>
+                    <option value="english">English</option>
+                    <option value="bilingual">Русский + English</option>
+                </select>
+                <small class="form-text text-muted">Выбор языка влияет только на формат ответа. Анализ кода выполняется одинаково для всех языков.</small>
+            </div>
+        </div>
         
-        <footer>
-            <p>AI Code Review Bot &copy; 2025 | Открытое ПО для анализа кода</p>
-        </footer>
+        <div class="form-group">
+            <label for="code-editor">Вставьте ваш код:</label>
+            <textarea id="code-editor" class="form-control"></textarea>
+        </div>
+        
+        <div class="form-group">
+            <button id="analyze-button" class="btn btn-primary">Анализировать код</button>
+        </div>
+        
+        <!-- Индикатор загрузки -->
+        <div id="loading-indicator" style="display: none;">
+            <div class="spinner"></div>
+            <p>Анализ кода, пожалуйста, подождите...</p>
+        </div>
+        
+        <!-- Контейнер для результатов -->
+        <div id="result-container" style="display: none;">
+            <h2>Результаты анализа</h2>
+            <div id="result" class="result-content"></div>
+        </div>
+        
+        <!-- Контейнер для ошибок -->
+        <div id="error" class="error-message" style="display: none;"></div>
     </div>
     
-    <script src="script.js"></script>
+    <script src="/script.js"></script>
 </body>
 </html>

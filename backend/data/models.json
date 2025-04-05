@@ -1,0 +1,9 @@
+{
+  "mock-default": {
+    "id": "mock-default",
+    "name": "Mock Model (Default)",
+    "type": "mock",
+    "config": {},
+    "is_default": true
+  }
+}

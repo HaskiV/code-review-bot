@@ -9,4 +9,6 @@ services:
       - ./backend:/app
       - ./frontend:/app/static
     environment:
-      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - ENVIRONMENT=development
+      - DEBUG_MODE=True

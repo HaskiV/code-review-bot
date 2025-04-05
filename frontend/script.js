@@ -1,145 +1,233 @@
+// Отладочные сообщения
+console.log("Script loaded");
+
+// Глобальные переменные
+let editor;
+
+// Инициализация при загрузке DOM
 document.addEventListener('DOMContentLoaded', function() {
-    const codeInput = document.getElementById('code-input');
-    const languageSelect = document.getElementById('language');
-    const analyzeBtn = document.getElementById('analyze-btn');
-    const loadingIndicator = document.getElementById('loading');
-    const resultsContainer = document.getElementById('results');
-    const mlSuggestionsElement = document.getElementById('ml-suggestions');
-    const staticAnalysisElement = document.getElementById('static-analysis');
+    console.log("DOM loaded");
     
-    // API URL - проверяем доступность сервера
-    const API_URL = 'http://localhost:5000/api/review';
-    const PING_URL = 'http://localhost:5000/api/ping';
+    // Инициализация CodeMirror
+    editor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
+        lineNumbers: true,
+        mode: 'python',
+        theme: 'default',
+        indentUnit: 4,
+        tabSize: 4,
+        lineWrapping: true,
+        extraKeys: {"Tab": "indentMore", "Shift-Tab": "indentLess"}
+    });
+    console.log("CodeMirror initialized");
     
-    // Проверяем доступность сервера при загрузке страницы
-    async function checkServerStatus() {
-        try {
-            const response = await fetch(PING_URL, { method: 'GET' });
-            if (response.ok) {
-                console.log('Server is available');
-                return true;
-            } else {
-                console.error('Server returned an error');
-                return false;
+    // Загрузка моделей
+    loadModels();
+    
+    // Загрузка сохраненных настроек
+    loadResponseLanguagePreference();
+    
+    // Обработчик события изменения языка программирования
+    document.getElementById('language-select').addEventListener('change', function() {
+        const language = this.value;
+        editor.setOption('mode', language);
+    });
+    
+    // Обработчик события изменения языка ответа
+    document.getElementById('response-language').addEventListener('change', saveResponseLanguagePreference);
+    
+    // Обработчик события нажатия на кнопку анализа
+    document.getElementById('analyze-button').addEventListener('click', analyzeCode);
+    console.log("Analyze button event listener added");
+});
+
+// Загрузка списка моделей с сервера
+function loadModels() {
+    console.log("Loading models...");
+    
+    // Отправляем запрос на получение списка моделей
+    fetch('/api/models')
+        .then(response => {
+            console.log("Models API response status:", response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log("Models data received:", data);
+            
+            // Получаем элемент select для моделей
+            const modelSelect = document.getElementById('model-select');
+            if (!modelSelect) {
+                console.error("Model select element not found!");
+                return;
             }
-        } catch (error) {
-            console.error('Cannot connect to server:', error);
-            return false;
+            
+            // Очищаем текущие опции
+            modelSelect.innerHTML = '';
+            
+            // Проверяем, что данные корректны
+            if (data.success && data.models && Array.isArray(data.models)) {
+                // Добавляем опции для каждой модели
+                data.models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model.id;
+                    option.textContent = model.name;
+                    
+                    // Устанавливаем модель по умолчанию
+                    if (model.is_default || model.id === data.default_model) {
+                        option.selected = true;
+                    }
+                    
+                    modelSelect.appendChild(option);
+                });
+                
+                console.log("Models loaded successfully");
+            } else {
+                console.error("Invalid models data:", data);
+                
+                // Добавляем опцию-заглушку
+                const option = document.createElement('option');
+                option.value = "";
+                option.textContent = "Модели недоступны";
+                modelSelect.appendChild(option);
+            }
+        })
+        .catch(error => {
+            console.error("Error loading models:", error);
+            
+            // Получаем элемент select для моделей
+            const modelSelect = document.getElementById('model-select');
+            if (modelSelect) {
+                // Очищаем текущие опции
+                modelSelect.innerHTML = '';
+                
+                // Добавляем опцию-заглушку
+                const option = document.createElement('option');
+                option.value = "";
+                option.textContent = "Ошибка загрузки моделей";
+                modelSelect.appendChild(option);
+            }
+        });
+}
+
+// Анализ кода
+function analyzeCode() {
+    const code = editor.getValue();
+    const language = document.getElementById('language-select').value;
+    const model = document.getElementById('model-select').value;
+    const responseLanguage = document.getElementById('response-language').value;
+    
+    console.log("Analyze button clicked");
+    console.log("Code:", code);
+    console.log("Language:", language);
+    console.log("Model:", model);
+    console.log("Response Language:", responseLanguage);
+    
+    // Показываем индикатор загрузки
+    document.getElementById('loading-indicator').style.display = 'block';
+    document.getElementById('result').innerHTML = '';
+    document.getElementById('result-container').style.display = 'none';
+    document.getElementById('error').style.display = 'none';
+    
+    fetch('/api/review', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            code: code,
+            language: language,
+            model: model,
+            response_language: responseLanguage
+        })
+    })
+    .then(response => {
+        console.log("Review API response status:", response.status);
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(`Ошибка сервера: ${response.status}${data.error ? ' - ' + data.error : ''}`);
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Скрываем индикатор загрузки
+        document.getElementById('loading-indicator').style.display = 'none';
+        
+        console.log("API response data:", data);
+        
+        if (data.success) {
+            console.log("Success, displaying result");
+            displayResult(data.result);
+        } else {
+            console.error("API returned error:", data.error);
+            throw new Error(data.error || 'Неизвестная ошибка');
+        }
+    })
+    .catch(error => {
+        // Скрываем индикатор загрузки
+        document.getElementById('loading-indicator').style.display = 'none';
+        
+        console.error("Error analyzing code:", error);
+        displayError(error.message);
+    });
+}
+
+// Отображение результата анализа
+function displayResult(result) {
+    const resultContainer = document.getElementById('result-container');
+    const resultElement = document.getElementById('result');
+    
+    console.log("Displaying result:", result);
+    console.log("Result type:", typeof result);
+    
+    // Проверяем тип результата и преобразуем его в строку, если это объект
+    let resultText = result;
+    if (typeof result === 'object') {
+        try {
+            resultText = JSON.stringify(result, null, 2);
+            console.log("Converted object to string:", resultText);
+        } catch (e) {
+            console.error("Error stringifying result:", e);
+            resultText = "Ошибка преобразования результата: " + e.message;
         }
     }
     
-    analyzeBtn.addEventListener('click', async function() {
-        const code = codeInput.value.trim();
-        const language = languageSelect.value;
-        
-        if (!code) {
-            alert('Пожалуйста, введите код для анализа');
-            return;
-        }
-        
-        // Проверяем доступность сервера перед отправкой запроса
-        const serverAvailable = await checkServerStatus().catch(() => false);
-        if (!serverAvailable) {
-            alert('Сервер недоступен. Пожалуйста, убедитесь, что бэкенд запущен.');
-            return;
-        }
-        
-        // Показываем индикатор загрузки
-        loadingIndicator.style.display = 'flex';
-        resultsContainer.style.display = 'none';
-        
-        try {
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({
-                    code: code,
-                    language: language
-                })
-            });
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                let errorMessage;
-                
-                try {
-                    const errorJson = JSON.parse(errorText);
-                    errorMessage = errorJson.error || `Ошибка сервера: ${response.status}`;
-                } catch (e) {
-                    errorMessage = `Ошибка сервера: ${response.status}. ${errorText}`;
-                }
-                
-                throw new Error(errorMessage);
-            }
-            
-            const data = await response.json();
-            
-            // Отображаем результаты
-            mlSuggestionsElement.textContent = data.ml_suggestions || 'Нет предложений';
-            
-            // Форматируем результаты статического анализа
-            if (data.static_analysis && data.static_analysis.length > 0) {
-                let analysisHtml = '';
-                
-                data.static_analysis.forEach(result => {
-                    analysisHtml += `<h4>${result.tool}</h4>`;
-                    
-                    if (!result.output) {
-                        analysisHtml += `<pre>Нет данных от инструмента</pre>`;
-                        return;
-                    }
-                    
-                    try {
-                        // Пытаемся распарсить JSON, если это возможно
-                        const jsonOutput = JSON.parse(result.output);
-                        analysisHtml += `<pre>${JSON.stringify(jsonOutput, null, 2)}</pre>`;
-                    } catch (e) {
-                        // Если не JSON или произошла ошибка, безопасно выводим как текст
-                        // Экранируем HTML для предотвращения XSS
-                        const safeOutput = result.output
-                            .replace(/&/g, '&amp;')
-                            .replace(/</g, '&lt;')
-                            .replace(/>/g, '&gt;')
-                            .replace(/"/g, '&quot;')
-                            .replace(/'/g, '&#039;');
-                        analysisHtml += `<pre>${safeOutput}</pre>`;
-                    }
-                });
-                
-                staticAnalysisElement.innerHTML = analysisHtml;
-            } else {
-                staticAnalysisElement.textContent = 'Нет результатов статического анализа';
-            }
-            
-            // Скрываем индикатор загрузки и показываем результаты
-            loadingIndicator.style.display = 'none';
-            resultsContainer.style.display = 'block';
-            
-        } catch (error) {
-            console.error('Ошибка:', error);
-            alert(`Произошла ошибка при анализе кода: ${error.message}`);
-            loadingIndicator.style.display = 'none';
-        }
-    });
+    // Преобразуем markdown в HTML
+    try {
+        console.log("Parsing markdown:", resultText);
+        resultElement.innerHTML = marked.parse(resultText);
+        console.log("Markdown parsed successfully");
+    } catch (e) {
+        console.error("Error parsing markdown:", e);
+        resultElement.textContent = resultText; // Fallback to plain text
+    }
     
-    // Проверяем доступность сервера при загрузке страницы
-    checkServerStatus().then(available => {
-        if (!available) {
-            // Добавляем предупреждение на страницу
-            const warning = document.createElement('div');
-            warning.className = 'server-warning';
-            warning.textContent = 'Внимание: Сервер анализа кода недоступен. Убедитесь, что бэкенд запущен.';
-            warning.style.backgroundColor = '#fff3cd';
-            warning.style.color = '#856404';
-            warning.style.padding = '10px';
-            warning.style.borderRadius = '4px';
-            warning.style.marginBottom = '20px';
-            warning.style.textAlign = 'center';
-            
-            document.querySelector('.code-input-section').prepend(warning);
-        }
-    });
-});
+    // Показываем контейнер с результатами
+    resultContainer.style.display = 'block';
+    
+    // Прокручиваем страницу к результатам
+    resultContainer.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Отображение ошибки
+function displayError(message) {
+    const errorElement = document.getElementById('error');
+    errorElement.textContent = message;
+    errorElement.style.display = 'block';
+    
+    // Прокручиваем страницу к сообщению об ошибке
+    errorElement.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Сохранение выбранного языка ответа в localStorage
+function saveResponseLanguagePreference() {
+    const responseLanguage = document.getElementById('response-language').value;
+    localStorage.setItem('preferredResponseLanguage', responseLanguage);
+}
+
+// Загрузка сохраненного языка ответа при загрузке страницы
+function loadResponseLanguagePreference() {
+    const savedLanguage = localStorage.getItem('preferredResponseLanguage');
+    if (savedLanguage) {
+        document.getElementById('response-language').value = savedLanguage;
+    }
+}

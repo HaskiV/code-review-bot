@@ -207,3 +207,7 @@ API_KEYS = {
 def get_api_key(provider: str) -> Optional[str]:
     """Get API key for a specific provider."""
     return API_KEYS.get(provider, "")
+
+def get_redis_url() -> str:
+    """Получение URL для подключения к Redis"""
+    return get_env_variable("REDIS_URL", "redis://localhost:6379/0")

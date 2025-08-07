@@ -4,7 +4,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from backend.api.routes import api
 from backend.auth.routes import auth_bp
-from backend.config.env import get_env_variable, get_host, get_port, is_debug_mode, get_request_timeout, get_max_code_length
+from backend.config.env import get_env_variable, get_host, get_port, is_debug_mode, get_request_timeout, get_max_code_length, get_redis_url
 # Импортируем команды
 from backend.commands import download_model_command, load_models_command
 
@@ -30,7 +30,7 @@ def create_app():
         get_remote_address,
         app=app,
         default_limits=[f"{app.config['RATE_LIMIT_PER_MINUTE']} per minute"],
-        storage_uri="memory://"
+        storage_uri=get_redis_url()
     )
     
     # Регистрация Blueprint
@@ -51,15 +51,9 @@ def create_app():
     def internal_server_error(e):
         return jsonify({"error": "Внутренняя ошибка сервера"}), 500
     
-    # Убедитесь, что модели загружаются при запуске приложения
-    from backend.services import model_service
-    
-    with app.app_context():
-        """Инициализация приложения перед первым запросом."""
-        # Загрузка моделей
-        model_service._load_models()
-        print("Models loaded successfully!")
-        pass
+    # Асинхронная предварительная загрузка моделей
+    from backend.api.routes import model_service
+    model_service.preload_models_in_background()
     
     return app
 

@@ -4,6 +4,16 @@ from pathlib import Path
 # Исправляем импорты, убирая относительные пути
 from backend.core.ml_analysis.model_adapter import create_adapter
 from backend.config.env import get_api_key, get_env_variable
+from backend.celery_app import celery
+
+@celery.task
+def load_model_task(model_id, model_config):
+    """Celery task to load a model adapter."""
+    try:
+        create_adapter(model_config['type'], model_id=model_id, model_config=model_config)
+        print(f"Successfully preloaded model: {model_id}")
+    except Exception as e:
+        print(f"Error preloading model {model_id}: {e}")
 
 class ModelService:
     """Сервис для работы с моделями анализа кода."""
@@ -19,53 +29,14 @@ class ModelService:
         self.models = {}
         self.default_model = None
         self.adapters = {}
-        self.load_models()
-    
-    def load_models(self):
-        """Загрузка моделей из файла конфигурации."""
-        if self.models_file.exists():
-            try:
-                with open(self.models_file, "r") as f:
-                    models_data = json.load(f)
-                    
-                    for model_id, model_data in models_data.items():
-                        self.models[model_id] = model_data
-                        
-                        if model_data.get("is_default", False):
-                            self.default_model = model_id
-            except Exception as e:
-                print(f"Ошибка загрузки моделей: {str(e)}")
-                # Создаем модель по умолчанию, если не удалось загрузить
-                self._create_default_model()
-        else:
-            # Создаем модель по умолчанию, если файл не существует
-            self._create_default_model()
-    
-    def _create_default_model(self):
-        """Создание модели по умолчанию, если нет других моделей."""
-        model_id = "mock-default"
-        self.models[model_id] = {
-            "id": model_id,
-            "name": "Mock Model (Default)",
-            "type": "mock",
-            "config": {},
-            "is_default": True
-        }
-        self.default_model = model_id
-        self.save_models()
-    
-    def save_models(self):
-        """Сохранение моделей в файл конфигурации."""
-        try:
-            # Создаем директорию, если она не существует
-            self.models_file.parent.mkdir(parents=True, exist_ok=True)
-            
-            with open(self.models_file, "w") as f:
-                json.dump(self.models, f, indent=2)
-        except Exception as e:
-            print(f"Ошибка сохранения моделей: {str(e)}")
-    
-    # В методе get_adapter добавьте обработку для типа "gradio"
+        self.load_model_configs()
+
+    def preload_models_in_background(self):
+        """Dispatches Celery tasks to preload all models."""
+        for model_id, model_config in self.models.items():
+            if model_config.get('type') != 'mock': # Don't preload mock models
+                load_model_task.delay(model_id, model_config)
+
     def get_adapter(self, model_id=None):
         """
         Получение адаптера для модели.
@@ -83,47 +54,9 @@ class ModelService:
         
         if model_id not in self.adapters:
             model_data = self.models[model_id]
-            model_type = model_data["type"]
-            
-            # Специальная обработка для локальных моделей
-            if model_type == "local":
-                # Импортируем необходимые модули
-                import torch
-                from backend.core.ml_analysis.model_adapter import HuggingFaceAdapter
-                
-                # Используем HuggingFaceAdapter для локальных моделей
-                model_path = model_data.get("path")
-                if model_path:
-                    # Определяем устройство (CPU или CUDA)
-                    has_cuda = torch.cuda.is_available()
-                    device = "cuda" if has_cuda else "cpu"
-                    
-                    # Используем квантизацию только если есть CUDA
-                    quantization = model_data.get("quantization") if has_cuda else None
-                    
-                    # Создаем адаптер для локальной модели
-                    self.adapters[model_id] = HuggingFaceAdapter(
-                        model_name=model_path,
-                        device=device,
-                        quantization=quantization
-                    )
-                    return self.adapters[model_id]
-            
-            # Специальная обработка для моделей Gradio
-            elif model_type == "gradio":
-                from backend.core.ml_analysis.gradio_adapter import GradioAdapter
-                
-                api_url = model_data.get("api_url")
-                if api_url:
-                    self.adapters[model_id] = GradioAdapter(
-                        api_url=api_url,
-                        model_id=model_id
-                    )
-                    return self.adapters[model_id]
-            
             # Создаем адаптер для других типов моделей
             from backend.core.ml_analysis.adapter_factory import create_adapter
-            self.adapters[model_id] = create_adapter(model_type, model_id=model_id)
+            self.adapters[model_id] = create_adapter(model_data['type'], model_id=model_id, model_config=model_data)
         
         return self.adapters[model_id]
     
@@ -338,7 +271,7 @@ class ModelService:
         
         return True, f"Модель '{model_data['name']}' успешно удалена"
     
-    def _load_models(self):
+    def load_model_configs(self):
         """Загрузка доступных моделей."""
         from backend.config.model_config import LOCAL_MODELS, AVAILABLE_MODELS, get_local_model_path
         
